@@ -19,7 +19,7 @@ Sistema de análisis semántico de transacciones de combustible utilizando OpenA
 - pandas
 - tiktoken
 
-## Instalación
+## Instalación Local
 
 1. Clonar el repositorio:
 ```bash
@@ -37,7 +37,7 @@ pip install -r requirements.txt
 OPENAI_API_KEY=tu_api_key
 ```
 
-## Uso
+## Uso Local
 
 1. Procesar datos y crear embeddings:
 ```bash
@@ -54,12 +54,29 @@ python import_to_qdrant.py
 streamlit run app.py
 ```
 
+## Despliegue en Streamlit Cloud
+
+1. Fork este repositorio a tu cuenta de GitHub
+
+2. Visita [share.streamlit.io](https://share.streamlit.io)
+
+3. Conecta tu cuenta de GitHub y selecciona el repositorio
+
+4. En la configuración del despliegue, agrega las siguientes variables secretas:
+   - `OPENAI_API_KEY`: Tu API key de OpenAI
+
+5. Haz clic en "Deploy!"
+
+La aplicación estará disponible en una URL pública de Streamlit Cloud.
+
 ## Estructura del Proyecto
 
 - `app.py`: Interfaz web con Streamlit
 - `process_tokens.py`: Procesamiento de datos y creación de embeddings
 - `import_to_qdrant.py`: Importación de datos a Qdrant
 - `requirements.txt`: Dependencias del proyecto
+- `.streamlit/config.toml`: Configuración de Streamlit
+- `packages.txt`: Dependencias del sistema
 
 ## Licencia
 
