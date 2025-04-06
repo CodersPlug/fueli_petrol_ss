@@ -14,36 +14,81 @@ import os
 from typing import List, Dict
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
-from pathlib import Path
+from qdrant_client.models import Distance, VectorParams
+import pandas as pd
 
 # Load environment variables
 load_dotenv()
 
 # Initialize OpenAI client
-api_key = os.getenv('OPENAI_API_KEY')
+api_key = st.secrets["OPENAI_API_KEY"]
 if not api_key:
-    st.error("Error: OPENAI_API_KEY not found in .env file")
+    st.error("Error: OPENAI_API_KEY not found in secrets")
     st.stop()
 
 client = OpenAI(api_key=api_key)
 
-# Initialize Qdrant client in local mode
+# Initialize Qdrant client in memory
 @st.cache_resource
 def get_qdrant_client():
-    """Get or create a singleton Qdrant client instance."""
-    storage_dir = Path("qdrant_storage")
-    storage_dir.mkdir(exist_ok=True)
-    return QdrantClient(
-        path=str(storage_dir),
-        force_disable_check_same_thread=True  # Allow concurrent access
-    )
-
-# Get the Qdrant client instance
-qdrant_client = get_qdrant_client()
+    """Get or create a singleton Qdrant client instance in memory."""
+    return QdrantClient(":memory:")  # Use in-memory storage
 
 # Collection configuration
 COLLECTION_NAME = "petrol_transactions"
 VECTOR_SIZE = 3072
+
+@st.cache_data
+def load_embeddings():
+    """Load embeddings from the JSON file."""
+    with open('embeddings.json', 'r') as f:
+        return json.load(f)
+
+def initialize_collection(qdrant_client: QdrantClient):
+    """Initialize the Qdrant collection if it doesn't exist."""
+    try:
+        qdrant_client.get_collection(COLLECTION_NAME)
+    except Exception:
+        # Collection doesn't exist, create it
+        qdrant_client.create_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
+        )
+        
+        # Load embeddings and data
+        embeddings_data = load_embeddings()
+        
+        # Prepare points for insertion
+        points = []
+        for i, item in enumerate(embeddings_data):
+            points.append(
+                models.PointStruct(
+                    id=i,
+                    vector=item['embedding'],
+                    payload={
+                        "text": item['text'],
+                        "created_at": item.get('created_at', '')
+                    }
+                )
+            )
+        
+        # Insert points in batches
+        batch_size = 100
+        for i in range(0, len(points), batch_size):
+            batch = points[i:i + batch_size]
+            qdrant_client.upsert(
+                collection_name=COLLECTION_NAME,
+                points=batch
+            )
+        
+        st.success(f"Initialized collection with {len(points)} records")
+
+# Get the Qdrant client instance
+qdrant_client = get_qdrant_client()
+
+# Initialize collection on startup
+with st.spinner("Inicializando base de datos..."):
+    initialize_collection(qdrant_client)
 
 def get_embedding(text: str, model="text-embedding-3-large") -> List[float]:
     """Get embeddings for a text using OpenAI's API."""
